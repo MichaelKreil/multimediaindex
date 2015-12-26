@@ -136,7 +136,7 @@ function parseFolder(filename) {
 			if (subNode.type == 'folder') {
 				list = list.concat(getThumbsRecursive(subNode))
 			} else {
-				if (subNode.icon) list.push({filename:path.resolve(iconDir, subNode.icon)});
+				if (subNode.icon) list.push(subNode.icon);
 			}
 		})
 		return list;
@@ -365,7 +365,7 @@ function ImageLib() {
 				.in('-geometry', iconSize+'x'+iconSize+'+0+0')
 				.in('-tile', node.cols+'x'+node.cols);
 
-			node.imageList.forEach(function (entry) { img.in(entry.filename) })
+			node.imageList.forEach(function (filename) { img.in(path.resolve(iconDir, filename)) })
 
 			img.resize(iconSize, iconSize)
 				.quality(95)
