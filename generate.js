@@ -113,8 +113,12 @@ function parseFolder(filename) {
 						url: path.basename(subNode.filename),
 						thumbUrl: '/'+subNode.icon.replace(/ /g, '%20'),
 						info: subNode.info ? subNode.info.join('<br>') : false,
-						text: path.basename(subNode.filename)
+						text: path.basename(subNode.filename),
+						sortBy: path.basename(subNode.filename).toLowerCase()
 					}
+				}).sort(function (a,b) {
+					if (a.sortBy < b.sortBy) return -1;
+					return 1;
 				})
 			});
 
