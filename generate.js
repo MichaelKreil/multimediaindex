@@ -10,6 +10,7 @@ var gm = require('gm');
 var async = require('async');
 var ffmpeg = require('fluent-ffmpeg')
 var mustache = require('mustache');
+var imageLib = ImageLib();
 var template = fs.readFileSync(path.resolve(__dirname, 'template.html'), 'utf8');
 
 var metaData = {};
@@ -117,7 +118,7 @@ function parseFolder(filename) {
 
 				var html = mustache.render(template, {
 					title: path.basename(filename),
-					backUrl: node.parent ? node.parent.url : false;
+					backUrl: node.parent ? node.parent.url : false,
 					entries: Object.keys(node.children).map(function (key) {
 						var subNode = node.children[key];
 						return {
@@ -182,18 +183,15 @@ function parseImage(filename) {
 			var iconFilename = filename+'.jpg';
 			var fullIconFilename = path.resolve(iconDir, iconFilename);
 			ensureFolder(path.dirname(fullIconFilename));
-			gm(mainFile)
-				.resize(iconSize, iconSize)
-				.background('#FFFFFF')
-				.gravity('Center')
-				.extent(iconSize, iconSize)
-				.quality(95)
-				.write(fullIconFilename, function (err) {
-					if (err) throw new Error(err);
+			imageLib.generateIcon(
+				mainFile,
+				fullIconFilename,
+				function () {
 					node.icon = iconFilename;
 					saveMeta();
 					cb();
-				})
+				}
+			);
 		})
 	}
 }
@@ -245,7 +243,84 @@ function parseMovie(filename) {
 			var iconFilename = filename+'.png';
 			var fullIconFilename = path.resolve(iconDir, iconFilename);
 			ensureFolder(path.dirname(fullIconFilename));
+			imageLib.createMovieIcon(
+			)
+		})
+	}
+}
 
+
+
+function parseOther(filename) {
+	var node = getNode(filename);
+
+	var mainFile = path.resolve(mainDir, filename);
+
+	if (!node.type) node.type = 'other';
+
+	if (!node.icon) {
+		todoFiles.push(function (cb) {
+			console.info('iconize "'+filename+'"');
+			var iconFilename = filename+'.png';
+			var fullIconFilename = path.resolve(iconDir, iconFilename);
+			ensureFolder(path.dirname(fullIconFilename));
+			imageLib.createTextIcon(
+				filename.split('.').pop().toUpperCase(),
+				fullIconFilename,
+				function () {
+					node.icon = iconFilename;
+					saveMeta();
+					cb();
+				}
+			)
+		})
+	}
+}
+
+function getNode(filename) {
+	var parts = filename.split('/');
+	var node = metaData;
+	if (!node.children) node.children = {};
+
+	if (filename != '') {
+		parts.forEach(function (part) {
+			if (!node.children[part]) node.children[part] = {children:{}};
+			node = node.children[part];
+		})
+	}
+
+	if (node.icon && !fs.existsSync(path.resolve(iconDir, node.icon))) node.icon = false;
+	node.filename = filename;
+
+	return node;
+}
+
+function ImageLib() {
+	return {
+		createTextIcon: function (text, filename, cb) {
+			gm(iconSize, iconSize, '#FFF')
+				.fill('#444')
+				.font('/System/Library/Fonts/HelveticaNeue.dfont')
+				.fontSize(iconSize*0.3)
+				.drawText(0, 0, text, 'Center')
+				.write(filename, function (err) {
+					if (err) throw new Error(err);
+					cb();
+				})
+		},
+		createImageIcon: function (image, filename, cb) {
+			gm(image)
+				.resize(iconSize, iconSize)
+				.background('#FFFFFF')
+				.gravity('Center')
+				.extent(iconSize, iconSize)
+				.quality(95)
+				.write(filename, function (err) {
+					if (err) throw new Error(err);
+					cb();
+				})
+		},
+		createMovieIcon: function (movie, filename, cb) {
 			var thumbCols = 4;
 			var thumbRows = Math.ceil(thumbCols*node.meta.width/node.meta.height);
 			var thumbCount = thumbCols*thumbRows;
@@ -268,56 +343,8 @@ function parseMovie(filename) {
 					saveMeta();
 					cb();
 				})
-		})
+		}
 	}
-}
-
-
-
-function parseOther(filename) {
-	var node = getNode(filename);
-
-	var mainFile = path.resolve(mainDir, filename);
-
-	if (!node.type) node.type = 'other';
-
-	if (!node.icon) {
-		todoFiles.push(function (cb) {
-			console.info('iconize "'+filename+'"');
-			var iconFilename = filename+'.png';
-			var fullIconFilename = path.resolve(iconDir, iconFilename);
-			ensureFolder(path.dirname(fullIconFilename));
-			gm(iconSize, iconSize, '#FFF')
-				.fill('#444')
-				.font('/System/Library/Fonts/HelveticaNeue.dfont')
-				.fontSize(iconSize*0.3)
-				.drawText(0, 0, filename.split('.').pop().toUpperCase(), 'Center')
-				.write(fullIconFilename, function (err) {
-					if (err) throw new Error(err);
-					node.icon = iconFilename;
-					saveMeta();
-					cb();
-				})
-		})
-	}
-}
-
-function getNode(filename) {
-	var parts = filename.split('/');
-	var node = metaData;
-	if (!node.children) node.children = {};
-
-	if (filename != '') {
-		parts.forEach(function (part) {
-			if (!node.children[part]) node.children[part] = {children:{}};
-			node = node.children[part];
-		})
-	}
-
-	if (node.icon && !fs.existsSync(path.resolve(iconDir, node.icon))) node.icon = false;
-	node.filename = filename;
-
-	return node;
 }
 
 function ensureFolder(folder) {
