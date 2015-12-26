@@ -86,55 +86,42 @@ function parseFolder(filename) {
 	if (!node.type) node.type = 'folder';
 
 	node.url = path.resolve('/', filename, 'index.html');
+	node.icon = path.join(filename, '_folder.jpg');
 
 	todoFolders.push(function (cb) {
-		console.info('iconize "'+filename+'"');
-		var iconFilename = path.join(filename, '_folder.jpg');
-		var fullIconFilename = path.resolve(iconDir, iconFilename);
-		ensureFolder(path.dirname(fullIconFilename));
-
 		var imageList = getThumbsRecursive(node);
 		if (imageList.length < 1) throw Error();
 		var cols = Math.floor(Math.sqrt(imageList.length));
 		var n = cols*cols;
-		
-		var img = gm()
-			.command('montage')
-			.background('#FFFFFF')
-			.in('-geometry', iconSize+'x'+iconSize+'+0+0')
-			.in('-tile', cols+'x'+cols);
+		node.imageList = []
 
 		for (var i = 0; i < n; i++) {
-			var index = Math.floor(i*(imageList.length-1)/(n-0.999999)+0.5);
-			img.in(imageList[index].filename);
+			node.imageList.push(imageList[Math.floor(i*(imageList.length-1)/(n-0.999999)+0.5)]);
 		}
+		node.cols = cols;
 
-		img.resize(iconSize, iconSize)
-			.quality(95)
-			.write(fullIconFilename, function (err) {
-				if (err) throw new Error(err);
-				node.icon = iconFilename;
-				saveMeta();
+		imageLib.createMosaicIcon(node, function () {
+			saveMeta();
 
-				var html = mustache.render(template, {
-					title: path.basename(filename),
-					backUrl: node.parent ? node.parent.url : false,
-					entries: Object.keys(node.children).map(function (key) {
-						var subNode = node.children[key];
-						return {
-							class: subNode.type,
-							url: path.basename(subNode.filename),
-							thumbUrl: '/'+subNode.icon.replace(/ /g, '%20'),
-							info: subNode.info ? subNode.info.join('<br>') : false,
-							text: path.basename(subNode.filename)
-						}
-					})
-				});
+			var html = mustache.render(template, {
+				title: path.basename(filename),
+				backUrl: node.parent ? node.parent.url : false,
+				entries: Object.keys(node.children).map(function (key) {
+					var subNode = node.children[key];
+					return {
+						class: subNode.type,
+						url: path.basename(subNode.filename),
+						thumbUrl: '/'+subNode.icon.replace(/ /g, '%20'),
+						info: subNode.info ? subNode.info.join('<br>') : false,
+						text: path.basename(subNode.filename)
+					}
+				})
+			});
 
-				fs.writeFileSync(mainFile, html, 'utf8');
+			fs.writeFileSync(mainFile, html, 'utf8');
 
-				cb();
-			})
+			cb()
+		})
 	})
 
 	function getThumbsRecursive(node) {
@@ -154,8 +141,8 @@ function parseFolder(filename) {
 function parseImage(filename) {
 	var node = getNode(filename);
 
-	var mainFile = path.resolve(mainDir, filename);
-	var stat = fs.statSync(mainFile);
+	node.filename = path.resolve(mainDir, filename);
+	var stat = fs.statSync(node.filename);
 	var mtime = stat.mtime.toISOString();
 
 	if (mtime != node.mtime) {
@@ -169,7 +156,7 @@ function parseImage(filename) {
 	if (!node.meta) {
 		todoFiles.push(function (cb) {
 			console.info('identify "'+filename+'"');
-			gm(mainFile).size(function (err, data) {
+			gm(node.filename).size(function (err, data) {
 				node.meta = data;
 				node.info = [data.width+'x'+data.height, (stat.size/1048576).toFixed(1)+' MB'];
 				cb();
@@ -179,15 +166,10 @@ function parseImage(filename) {
 
 	if (!node.icon) {
 		todoFiles.push(function (cb) {
-			console.info('iconize "'+filename+'"');
-			var iconFilename = filename+'.jpg';
-			var fullIconFilename = path.resolve(iconDir, iconFilename);
-			ensureFolder(path.dirname(fullIconFilename));
-			imageLib.generateIcon(
-				mainFile,
-				fullIconFilename,
+			node.icon = filename+'.jpg';
+			imageLib.createImageIcon(
+				node,
 				function () {
-					node.icon = iconFilename;
 					saveMeta();
 					cb();
 				}
@@ -238,13 +220,11 @@ function parseMovie(filename) {
 	if (!node.icon) {
 
 		todoFiles.push(function (cb) {
-			console.info('iconize "'+filename+'"');
-
-			var iconFilename = filename+'.png';
-			var fullIconFilename = path.resolve(iconDir, iconFilename);
-			ensureFolder(path.dirname(fullIconFilename));
-			imageLib.createMovieIcon(
-			)
+			node.icon = filename+'.png';
+			imageLib.createMovieIcon(node, function () {
+				saveMeta();
+				cb();
+			})
 		})
 	}
 }
@@ -260,15 +240,10 @@ function parseOther(filename) {
 
 	if (!node.icon) {
 		todoFiles.push(function (cb) {
-			console.info('iconize "'+filename+'"');
-			var iconFilename = filename+'.png';
-			var fullIconFilename = path.resolve(iconDir, iconFilename);
-			ensureFolder(path.dirname(fullIconFilename));
+			node.icon = filename+'.png';
 			imageLib.createTextIcon(
-				filename.split('.').pop().toUpperCase(),
-				fullIconFilename,
+				node,
 				function () {
-					node.icon = iconFilename;
 					saveMeta();
 					cb();
 				}
@@ -291,42 +266,58 @@ function getNode(filename) {
 
 	if (node.icon && !fs.existsSync(path.resolve(iconDir, node.icon))) node.icon = false;
 	node.filename = filename;
+	node.fullFilename = path.resolve(mainDir, filename);
 
 	return node;
 }
 
 function ImageLib() {
 	return {
-		createTextIcon: function (text, filename, cb) {
+		createTextIcon: function (node, cb) {
+			console.info('iconize "'+node.filename+'" (text)');
+
+			var iconFilename = path.resolve(iconDir, node.icon);
+			ensureFolder(path.dirname(iconFilename));
+
 			gm(iconSize, iconSize, '#FFF')
 				.fill('#444')
 				.font('/System/Library/Fonts/HelveticaNeue.dfont')
 				.fontSize(iconSize*0.3)
-				.drawText(0, 0, text, 'Center')
-				.write(filename, function (err) {
+				.drawText(0, 0, node.filename.split('.').pop().toUpperCase(), 'Center')
+				.write(iconFilename, function (err) {
 					if (err) throw new Error(err);
 					cb();
 				})
 		},
-		createImageIcon: function (image, filename, cb) {
-			gm(image)
+		createImageIcon: function (node, cb) {
+			console.info('iconize "'+node.filename+'" (image)');
+
+			var iconFilename = path.resolve(iconDir, node.icon);
+			ensureFolder(path.dirname(iconFilename));
+
+			gm(node.fullFilename)
 				.resize(iconSize, iconSize)
 				.background('#FFFFFF')
 				.gravity('Center')
 				.extent(iconSize, iconSize)
 				.quality(95)
-				.write(filename, function (err) {
+				.write(iconFilename, function (err) {
 					if (err) throw new Error(err);
 					cb();
 				})
 		},
-		createMovieIcon: function (movie, filename, cb) {
+		createMovieIcon: function (node, cb) {
+			console.info('iconize "'+node.filename+'" (movie)');
+
+			var iconFilename = path.resolve(iconDir, node.icon);
+			ensureFolder(path.dirname(iconFilename));
+
 			var thumbCols = 4;
 			var thumbRows = Math.ceil(thumbCols*node.meta.width/node.meta.height);
 			var thumbCount = thumbCols*thumbRows;
 			var skip = node.meta.duration*node.meta.framerate/(thumbCount+1);
 
-			ffmpeg(mainFile)
+			ffmpeg(node.fullFilename)
 				.seekInput(node.meta.duration*0.5/(thumbCount+1))
 				.videoFilter('fps='+(thumbCount+1)/node.meta.duration)
 				.videoFilter('format=bgr24')
@@ -336,11 +327,31 @@ function ImageLib() {
 				.videoFilter('crop='+iconSize+':'+iconSize)
 				.frames(1)
 				.noAudio()
-				.save(fullIconFilename)
+				.save(iconFilename)
 				.on('error', function(err)	{ throw err })
-				.on('end', function () {
-					node.icon = iconFilename;
-					saveMeta();
+				.on('end', function (err) {
+					if (err) throw new Error(err);
+					cb();
+				})
+		},
+		createMosaicIcon: function (node, cb) {
+			console.info('iconize "'+node.filename+'" (mosaic)');
+
+			var iconFilename = path.resolve(iconDir, node.icon);
+			ensureFolder(path.dirname(iconFilename));
+
+			var img = gm()
+				.command('montage')
+				.background('#FFFFFF')
+				.in('-geometry', iconSize+'x'+iconSize+'+0+0')
+				.in('-tile', node.cols+'x'+node.cols);
+
+			node.imageList.forEach(function (entry) { img.in(entry.filename) })
+
+			img.resize(iconSize, iconSize)
+				.quality(95)
+				.write(iconFilename, function (err) {
+					if (err) throw new Error(err);
 					cb();
 				})
 		}
