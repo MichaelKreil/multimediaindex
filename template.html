@@ -5,16 +5,30 @@
 		<meta charset="utf-8"/>
 		<style type="text/css">
 			body {
-				margin: 0;
+				margin: 20px;
 			}
-			body, p, a {
+			body {
 				font-family: Helvetica, Verdana, sans-serif;
 				color: #444;
+			}
+			body, p {
 				font-size: 12px;
 			}
 			a {
 				text-decoration: none;
+				color: #444;
 			}
+
+			h1, h1 a {
+				color: #aaa;
+			}
+				h1 #title {
+					color: #444;
+				}
+					h1 a {
+						border-bottom: 1px solid #aaa;
+					}
+
 			.entry {
 				width: 160px;
 				height: 180px;
@@ -63,53 +77,13 @@
 			.entry:hover .info {
 				opacity: 1;
 			}
-			/*
-			p.info {
-				margin: 0;
-				padding: 0;
-				font-size: 10px;
-				color: #888;
-			}
-			a:hover {
-				text-decoration: underline;
-			}
-			h1 {
-				font-size: 30px;
-				text-align: center;
-			}
-			.entry {
-				padding: 16px;
-				margin: 16px;
-				height: 260px;
-				float: left;
-				text-align: center;
-				background: #eee;
-				box-shadow: 5px 5px 20px rgba(0,0,0,0.2);
-				border: 1px solid #ccc;
-			}
-			.image {
-				width:  240px;
-				height: 240px;
-				background-color: #fff;
-				background-position: center;
-				background-repeat: no-repeat;
-				background-size: contain;
-				margin-bottom: 5px;
-			}
-			footer {
-				margin-top: 50px;
-				background: #eee;
-				padding: 20px;
-				text-align: center;
-			}*/
 		</style>
 	</head>
 	<body>
-		<p>{{#backlink}}&#9665; <a href="{{backlink}}">Zurück</a>{{/backlink}}&nbsp;</p>
-		<h1>{{title}}</h1>
+		<h1>{{#parents}}<a href="{{url}}">{{title}}</a> / {{/parents}}<span id="title">{{title}}<span></h1>
 		{{#entries}}
 			<div class="entry {{class}} {{#info}}hasinfo{{/info}}">
-				<a href="{{url}}"><div class="thumb" style="background-image:url(/_thumbs/{{thumbUrl}})">{{#info}}<p class="info">{{{info}}}</p>{{/info}}</div>{{text}}</a>
+				<a href="{{url}}"><div class="thumb" style="background-image:url(/_thumbs/{{thumbUrl}})">{{#info}}<p class="info">{{{info}}}</p>{{/info}}</div>{{title}}</a>
 			</div>
 		{{/entries}}
 	</body>

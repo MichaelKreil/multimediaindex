@@ -23,6 +23,7 @@ scanDirectory('');
 
 async.series(todoFiles, function () {
 	async.series(todoFolders, function () {
+		saveMeta();
 		console.log('Finished');
 	})
 })
@@ -104,8 +105,8 @@ function parseFolder(filename) {
 			saveMeta();
 
 			var html = mustache.render(template, {
-				title: path.basename(filename),
-				backUrl: node.parent ? node.parent.url : false,
+				title: node.title,
+				parents: getAncestors(filename),
 				entries: Object.keys(node.children).map(function (key) {
 					var subNode = node.children[key];
 					return {
@@ -113,7 +114,7 @@ function parseFolder(filename) {
 						url: path.basename(subNode.filename),
 						thumbUrl: '/'+subNode.icon.replace(/ /g, '%20'),
 						info: subNode.info ? subNode.info.join('<br>') : false,
-						text: path.basename(subNode.filename),
+						title: subNode.title,
 						sortBy: path.basename(subNode.filename).toLowerCase()
 					}
 				}).sort(function (a,b) {
@@ -139,6 +140,19 @@ function parseFolder(filename) {
 			}
 		})
 		return list;
+	}
+
+	function getAncestors(filename) {
+		if (filename == '') return [];
+
+		var parts = filename.split('/');
+		var node = metaData;
+		return parts.map(function (part) {
+			var result = node;
+			node = node.children[part];
+			return result;
+		})
+
 	}
 }
 
@@ -270,6 +284,7 @@ function getNode(filename) {
 
 	if (node.icon && !fs.existsSync(path.resolve(iconDir, node.icon))) node.icon = false;
 	node.filename = filename;
+	node.title = filename == '' ? 'root' : path.basename(filename);
 	node.fullFilename = path.resolve(mainDir, filename);
 
 	return node;
