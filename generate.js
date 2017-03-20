@@ -56,6 +56,7 @@ function scanDirectory(folder) {
 				case 'jpg':
 				case 'png':
 				case 'psd':
+				case 'pdf':
 					// image
 					parseImage(filename);
 				break;
@@ -68,7 +69,6 @@ function scanDirectory(folder) {
 				case '7z':
 				case 'json':
 				case 'svg':
-				case 'pdf':
 					// other
 					parseOther(filename);
 				break;
@@ -86,7 +86,7 @@ function parseFolder(filename) {
 
 	if (!node.type) node.type = 'folder';
 
-	node.url = path.resolve('/', filename, 'index.html');
+	node.url = path.join(filename, 'index.html');
 	node.icon = path.join(filename, '_folder.jpg');
 
 	todoFolders.push(function (cb) {
@@ -103,7 +103,6 @@ function parseFolder(filename) {
 
 		imageLib.createMosaicIcon(node, function () {
 			saveMeta();
-
 			var html = mustache.render(template, {
 				title: node.title,
 				parents: getAncestors(filename),
@@ -111,8 +110,8 @@ function parseFolder(filename) {
 					var subNode = node.children[key];
 					return {
 						class: subNode.type,
-						url: path.basename(subNode.filename),
-						thumbUrl: '/'+subNode.icon.replace(/ /g, '%20'),
+						url: subNode.filename,
+						thumbUrl: path.join('_thumbs', subNode.icon.replace(/ /g, '%20')),
 						info: subNode.info ? subNode.info.join('<br>') : false,
 						title: subNode.title,
 						sortBy: path.basename(subNode.filename).toLowerCase()
@@ -159,8 +158,8 @@ function parseFolder(filename) {
 function parseImage(filename) {
 	var node = getNode(filename);
 
-	node.filename = path.resolve(mainDir, filename);
-	var stat = fs.statSync(node.filename);
+	var mainFilename = path.resolve(mainDir, filename);
+	var stat = fs.statSync(mainFilename);
 	var mtime = stat.mtime.toISOString();
 
 	if (mtime != node.mtime) {
@@ -174,7 +173,8 @@ function parseImage(filename) {
 	if (!node.meta) {
 		todoFiles.push(function (cb) {
 			console.info('identify "'+filename+'"');
-			gm(node.filename).size(function (err, data) {
+			gm(mainFilename).size(function (err, data) {
+				if (err) throw err;
 				node.meta = data;
 				node.info = [data.width+'x'+data.height, (stat.size/1048576).toFixed(1)+' MB'];
 				cb();
@@ -215,6 +215,8 @@ function parseMovie(filename) {
 		todoFiles.push(function (cb) {
 			console.info('identify "'+filename+'"');
 			ffmpeg.ffprobe(mainFile, function (err, data) {
+				if (err) throw err;
+				
 				var stream = data.streams.filter(function (s) { return s.codec_type == 'video' });
 				if (stream.length != 1) throw Error();
 				stream = stream[0];

@@ -3,6 +3,8 @@
 	<head>
 		<title>{{title}}</title>
 		<meta charset="utf-8"/>
+		<base href="https://lab.dsst.io/screenshots/">
+		<!--<base href="http://localhost:8080/web/">-->
 		<style type="text/css">
 			body {
 				margin: 20px;
@@ -80,10 +82,10 @@
 		</style>
 	</head>
 	<body>
-		<h1>{{#parents}}<a href="{{url}}">{{title}}</a> / {{/parents}}<span id="title">{{title}}<span></h1>
+		<h1>{{#parents}}<a href="{{{url}}}">{{title}}</a> / {{/parents}}<span id="title">{{title}}<span></h1>
 		{{#entries}}
 			<div class="entry {{class}} {{#info}}hasinfo{{/info}}">
-				<a href="{{url}}"><div class="thumb" style="background-image:url(/_thumbs/{{thumbUrl}})">{{#info}}<p class="info">{{{info}}}</p>{{/info}}</div>{{title}}</a>
+				<a href="{{{url}}}"><div class="thumb" style="background-image:url({{{thumbUrl}}})">{{#info}}<p class="info">{{{info}}}</p>{{/info}}</div>{{title}}</a>
 			</div>
 		{{/entries}}
 	</body>
